@@ -118,8 +118,31 @@ struct any {
     }
     
     void swap(any& other) {
+        std::aligned_storage<SMALL_SIZE, SMALL_SIZE>::type swap_var;
+        if (status == 1 && other.status == 1) {
+            mover           (&swap_var, &storage);
+            deleter         (&storage);
+            other.mover     (&storage, &other.storage);
+            other.deleter   (&other.storage);
+            mover           (&other.storage, &swap_var);
+            deleter         (&swap_var);
+        } else if (status == 1 && other.status == 2) {
+            mover           (&swap_var, &storage);
+            deleter         (&storage);
+            std::swap       (*(void**)&storage, *(void**)&other.storage);
+            mover           (&other.storage, &swap_var);
+            deleter         (&swap_var);
+        } else if (status == 2 && other.status == 1) {
+            std::aligned_storage<SMALL_SIZE, SMALL_SIZE>::type swap_var;
+            other.mover     (&swap_var, &other.storage);
+            other.deleter   (&storage);
+            std::swap       (*(void**)&other.storage, *(void**)&storage);
+            other.mover     (&storage, &swap_var);
+            other.deleter   (&swap_var);
+        } else if (status == 2 && other.status == 2) {
+            std::swap(*(void**)&storage, *(void**)&other.storage);
+        }
         std::swap(status, other.status);
-        std::swap(storage, other.storage);
         std::swap(deleter, other.deleter);
         std::swap(copier, other.copier);
         std::swap(mover, other.mover);
