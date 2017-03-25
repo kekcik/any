@@ -6,10 +6,11 @@
 //  Copyright © 2017 Ivan Trofimov. All rights reserved.
 //
 
-#include <cstdlib>
+#include <cstdio>
 #include <utility>
 #include <cstdio>
 #include <type_traits>
+#include <cstdlib>
 
 namespace my_any {
     template <typename T>
@@ -38,46 +39,7 @@ namespace my_any {
     }
 }
 
-class any {
-private:
-    static constexpr size_t SMALL_SIZE = 16;
-    size_t status;
-    
-    std::aligned_storage <SMALL_SIZE, SMALL_SIZE> ::type storage;
-    
-    void(*deleter) (void*);
-    void(*copier) (void*, void const*);
-    void(*mover) (void*, void*);
-    void*(*allocator) (void);
-    
-    void clear() {
-        switch (status) {
-            case 1:
-                deleter(& storage);
-                status = 0;
-                break;
-            case 2:
-                deleter(*(void**) & storage);
-                status = 0;
-                break;
-            default:
-                break;
-        }
-    }
-    
-    void * any_raw() const {
-        switch (status) {
-            case 0:
-                return nullptr;
-            case 1:
-                return (void*) & storage;
-            default:
-                return *(void**) & storage;
-        }
-    }
-    
-public:
-    
+struct any {
     any() {
         status = 0;
         storage = {};
@@ -95,7 +57,8 @@ public:
         allocator = other.allocator;
         if (status == 1) {
             copier(&storage, &other.storage);
-        } else if (status == 2) {
+        }
+        else if (status == 2) {
             void *tmp = allocator();
             copier(tmp, *(void**) &other.storage);
             *(void**) & storage = tmp;
@@ -144,9 +107,9 @@ public:
         return *this;
     }
     
-    template <typename T, typename TMP = typename std::enable_if <!std::is_same <std::decay_t <T> , any> ::value> ::type>
+    template <typename T, typename TMP = typename std::enable_if <!std::is_same <std::decay_t<T>, any>::value>::type>
     any& operator = (T&& other) {
-        any(std::forward <T> (other)).swap( * this);
+        any(std::forward <T> (other)).swap(*this);
         return *this;
     }
     
@@ -178,34 +141,71 @@ public:
     
     template <typename T>
     friend T* any_cast(any* _any);
+    
+private:
+    static constexpr size_t SMALL_SIZE = 16;
+    size_t status;
+    
+    std::aligned_storage <SMALL_SIZE, SMALL_SIZE> ::type storage;
+    
+    void(*deleter) (void*);
+    void(*copier) (void*, void const*);
+    void(*mover) (void*, void*);
+    void*(*allocator) (void);
+    
+    void clear() {
+        switch (status) {
+            case 1:
+                deleter(& storage);
+                status = 0;
+                break;
+            case 2:
+                deleter(*(void**) & storage);
+                status = 0;
+                break;
+            default:
+                break;
+        }
+    }
+    
+    void* get_storage() const {
+        switch (status) {
+            case 0:
+                return nullptr;
+            case 1:
+                return (void*) & storage;
+            default:
+                return *(void**) & storage;
+        }
+    }
 };
 
 template <typename T >
 T any_cast(const any &_any) {
-    void * result = _any.any_raw();
+    void * result = _any.get_storage();
     return *(std::add_const_t < std::remove_reference_t <T>> * ) result;
 }
 
 template <typename T>
 T any_cast(any &_any) {
-    void * result = _any.any_raw();
+    void * result = _any.get_storage();
     return *(std::remove_reference_t <T> * ) result;
 }
 
 template <typename T>
 T any_cast(any &&_any) {
-    void * result = _any.any_raw();
+    void * result = _any.get_storage();
     return *(std::remove_reference_t <T> * ) result;
 }
 
 template <typename T>
 T const * any_cast(any const *_any) {
-    const T * result = _any -> any_raw();
+    const T * result = _any -> get_storage();
     return result;
 }
 
 template <typename T>
 T * any_cast(any *_any) {
-    T * result = _any -> any_raw();
+    T * result = _any -> get_storage();
     return result;
 }

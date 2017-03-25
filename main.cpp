@@ -122,7 +122,6 @@ void test_small_small() {
 
 
 int main() {
-    
     test_1();
     test_2();
     test_3();
